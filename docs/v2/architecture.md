@@ -251,6 +251,765 @@ class AgentCore {
 
 ---
 
+## 实际使用场景
+
+### 场景 1：自动化代码审查流程
+
+**背景**：团队收到大量 Pull Request，需要自动化代码审查。
+
+#### Tool 层（基础设施）
+
+```typescript
+// GitHub API Tool - 与 GitHub 交互
+class GitHubTool implements Tool {
+  name = 'github';
+  description = 'GitHub API 交互工具';
+  permissions = [
+    { type: 'network', rules: { allow: ['https://api.github.com/*'] } }
+  ];
+
+  async execute(input: {
+    action: string;
+    repo: string;
+    prNumber: number;
+  }): Promise<ToolResult> {
+    switch (input.action) {
+      case 'get-pr-diff':
+        return await this.getPRDiff(input.repo, input.prNumber);
+      case 'post-comment':
+        return await this.postComment(input.repo, input.prNumber, input.comment);
+      default:
+        throw new Error(`Unknown action: ${input.action}`);
+    }
+  }
+
+  private async getPRDiff(repo: string, prNumber: number): Promise<ToolResult> {
+    // 调用 GitHub API 获取 PR 的 diff
+    const diff = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`)
+      .then(r => r.json());
+    return { success: true, data: diff };
+  }
+
+  private async postComment(repo: string, prNumber: number, comment: string): Promise<ToolResult> {
+    // 在 PR 上发布评论
+    const result = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body: comment })
+    });
+    return { success: true, data: result };
+  }
+}
+
+// LLM Tool - 代码分析
+class LLMTool implements Tool {
+  name = 'llm';
+  description = 'LLM 代码分析工具';
+  permissions = [
+    { type: 'network', rules: { allow: ['https://api.anthropic.com/*'] } }
+  ];
+
+  async execute(input: {
+    prompt: string;
+    model: string;
+  }): Promise<ToolResult> {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        model: input.model,
+        messages: [{ role: 'user', content: input.prompt }],
+        max_tokens: 4096
+      })
+    });
+    const data = await response.json();
+    return {
+      success: true,
+      data: data.content[0].text,
+      cost: this.estimateCost(data.usage)
+    };
+  }
+
+  private estimateCost(usage: any): number {
+    // 估算 API 调用成本
+    return (usage.input_tokens * 0.000003 + usage.output_tokens * 0.000015);
+  }
+}
+```
+
+#### Skill 层（编排逻辑）
+
+```typescript
+// 代码审查 Skill
+class CodeReviewSkill implements Skill {
+  metadata = {
+    name: 'code-review-skill',
+    version: '2.0.0',
+    intent: 'automated-code-review',
+    author: 'agent',
+    created_at: '2025-02-04',
+    description: '自动化代码审查，检测潜在问题和最佳实践违规',
+    tags: ['code-review', 'quality', 'automation'],
+    dependencies: ['github', 'llm'],
+    cost_estimate: 0.15,
+    success_threshold: 0.9
+  };
+
+  async execute(context: SkillContext): Promise<SkillResult> {
+    const startTime = Date.now();
+    const { prNumber, repo } = context.input as { prNumber: number; repo: string };
+
+    // 1. 获取 PR diff
+    const githubTool = context.tools.get('github') as GitHubTool;
+    const diffResult = await githubTool.execute({
+      action: 'get-pr-diff',
+      repo,
+      prNumber
+    });
+
+    if (!diffResult.success || !diffResult.data) {
+      return {
+        success: false,
+        error: new Error('Failed to fetch PR diff'),
+        metrics: { cost: 0, latency: Date.now() - startTime }
+      };
+    }
+
+    // 2. 使用 LLM 分析代码
+    const llmTool = context.tools.get('llm') as LLMTool;
+    const reviewPrompt = `
+请审查以下代码变更，重点关注：
+1. 潜在的安全漏洞
+2. 性能问题
+3. 代码风格和最佳实践
+4. 可能的 bug
+
+PR Diff:
+${JSON.stringify(diffResult.data)}
+
+请以 JSON 格式输出审查结果，包含 severity (high/medium/low), file, line, message 字段。
+`;
+
+    const reviewResult = await llmTool.execute({
+      prompt: reviewPrompt,
+      model: 'claude-sonnet-4'
+    });
+
+    // 3. 解析审查结果
+    const review = JSON.parse(reviewResult.data as string);
+
+    // 4. 将审查结果作为评论发布到 PR
+    const comment = this.formatReviewComment(review);
+    await githubTool.execute({
+      action: 'post-comment',
+      repo,
+      prNumber,
+      comment
+    });
+
+    const cost = (diffResult.cost || 0) + (reviewResult.cost || 0);
+    const latency = Date.now() - startTime;
+
+    return {
+      success: true,
+      data: { review, commentPosted: true },
+      metrics: { cost, latency }
+    };
+  }
+
+  private formatReviewComment(review: any): string {
+    return `## 🤖 代码审查报告
+
+${review.map((item: any) => `
+### ${item.severity.toUpperCase()}: ${item.file}:${item.line}
+${item.message}
+`).join('\n---\n')}
+`;
+  }
+
+  validate(input: unknown): boolean {
+    return typeof input === 'object' &&
+           'prNumber' in input &&
+           'repo' in input;
+  }
+}
+```
+
+#### Agent Core 层（决策与调度）
+
+```typescript
+// Agent Core 执行代码审查
+async function runCodeReviewWorkflow(agent: AgentCore, trigger: {
+  repo: string;
+  prNumber: number;
+}) {
+  // 1. 调度：检查是否有多个 code-review skills 可用
+  const skills = await agent.registry.list({ intent: 'automated-code-review' });
+
+  // 2. 选择：基于历史数据选择最佳 skill
+  const bestSkill = agent.selectBestSkill(skills);
+
+  // 3. 风控：检查是否允许执行
+  const allowed = await agent.policy.allow(bestSkill, {
+    id: `pr-${trigger.prNumber}`,
+    intent: 'automated-code-review',
+    input: trigger
+  });
+
+  if (!allowed) {
+    logger.warn('Code review blocked by policy', { prNumber: trigger.prNumber });
+    return;
+  }
+
+  // 4. 执行：在沙箱中运行 skill
+  const result = await agent.sandbox.run(bestSkill, {
+    id: `pr-${trigger.prNumber}`,
+    intent: 'automated-code-review',
+    input: trigger
+  });
+
+  // 5. 反思：观察执行结果并更新 metrics
+  await agent.reflection.observe(bestSkill, result, {
+    id: `pr-${trigger.prNumber}`,
+    intent: 'automated-code-review',
+    input: trigger
+  });
+
+  // 6. 记录统计
+  await agent.memory.record(bestSkill.name, result);
+
+  logger.info('Code review completed', {
+    prNumber: trigger.prNumber,
+    success: result.success,
+    cost: result.metrics.cost
+  });
+}
+
+// 使用示例
+runCodeReviewWorkflow(agent, {
+  repo: 'my-org/my-project',
+  prNumber: 123
+});
+```
+
+**关键点**：
+- Tool 层提供基础能力（GitHub API、LLM）
+- Skill 层编排多个 Tool 完成复杂任务
+- Agent Core 负责选择、风控、反思
+- 每层职责清晰，可独立测试和演化
+
+---
+
+### 场景 2：生产环境日志分析与告警
+
+**背景**：监控生产服务日志，自动检测异常并触发告警。
+
+#### Tool 层（基础设施）
+
+```typescript
+// 日志查询 Tool
+class LogQueryTool implements Tool {
+  name = 'log-query';
+  description = '日志查询工具';
+  permissions = [
+    { type: 'network', rules: { allow: ['https://logs.example.com/*'] } }
+  ];
+
+  async execute(input: {
+    service: string;
+    timeRange: string;
+    query?: string;
+  }): Promise<ToolResult> {
+    // 从日志服务查询日志
+    const logs = await fetch('https://logs.example.com/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        service: input.service,
+        timeRange: input.timeRange,
+        query: input.query
+      })
+    }).then(r => r.json());
+
+    return {
+      success: true,
+      data: logs,
+      cost: 0.01
+    };
+  }
+}
+
+// 告警发送 Tool
+class AlertTool implements Tool {
+  name = 'alert';
+  description = '告警发送工具';
+  permissions = [
+    { type: 'network', rules: { allow: ['https://pagerduty.com/*', 'https://slack.com/*'] } }
+  ];
+
+  async execute(input: {
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    message: string;
+    channels: string[];
+  }): Promise<ToolResult> {
+    // 发送告警到 PagerDuty、Slack 等
+    const promises = input.channels.map(channel => {
+      if (channel === 'pagerduty') {
+        return this.sendPagerDutyAlert(input);
+      } else if (channel === 'slack') {
+        return this.sendSlackAlert(input);
+      }
+    });
+
+    await Promise.all(promises);
+    return { success: true };
+  }
+}
+```
+
+#### Skill 层（编排逻辑）
+
+```typescript
+// 异常检测 Skill
+class AnomalyDetectionSkill implements Skill {
+  metadata = {
+    name: 'anomaly-detection-skill',
+    version: '1.5.0',
+    intent: 'log-anomaly-detection',
+    author: 'agent',
+    created_at: '2025-02-04',
+    description: '检测日志中的异常模式并触发告警',
+    tags: ['monitoring', 'logs', 'alerting'],
+    dependencies: ['log-query', 'alert', 'llm'],
+    cost_estimate: 0.2,
+    success_threshold: 0.85
+  };
+
+  async execute(context: SkillContext): Promise<SkillResult> {
+    const startTime = Date.now();
+    const { service, timeRange } = context.input as { service: string; timeRange: string };
+
+    // 1. 查询日志
+    const logTool = context.tools.get('log-query') as LogQueryTool;
+    const logsResult = await logTool.execute({ service, timeRange });
+
+    // 2. 使用 LLM 分析日志模式
+    const llmTool = context.tools.get('llm') as LLMTool;
+    const analysisPrompt = `
+分析以下日志，检测异常模式：
+
+服务: ${service}
+时间范围: ${timeRange}
+
+日志内容:
+${JSON.stringify(logsResult.data).slice(0, 5000)}
+
+请识别：
+1. 错误和异常模式
+2. 性能下降的迹象
+3. 安全相关事件
+
+输出 JSON 格式：
+{
+  "anomalies": [
+    {
+      "type": "error|performance|security",
+      "severity": "critical|high|medium|low",
+      "pattern": "描述模式",
+      "count": 数量,
+      "recommendation": "建议"
+    }
+  ],
+  "summary": "整体评估"
+}
+`;
+
+    const analysisResult = await llmTool.execute({
+      prompt: analysisPrompt,
+      model: 'claude-sonnet-4'
+    });
+
+    const analysis = JSON.parse(analysisResult.data as string);
+
+    // 3. 对关键异常触发告警
+    const alertTool = context.tools.get('alert') as AlertTool;
+    const criticalAnomalies = analysis.anomalies.filter((a: any) =>
+      a.severity === 'critical' || a.severity === 'high'
+    );
+
+    if (criticalAnomalies.length > 0) {
+      await alertTool.execute({
+        severity: 'critical',
+        title: `🚨 异常检测: ${service}`,
+        message: this.formatAlertMessage(analysis),
+        channels: ['pagerduty', 'slack']
+      });
+    }
+
+    const cost = (logsResult.cost || 0) + (analysisResult.cost || 0);
+    const latency = Date.now() - startTime;
+
+    return {
+      success: true,
+      data: { analysis, alertsSent: criticalAnomalies.length },
+      metrics: { cost, latency }
+    };
+  }
+
+  private formatAlertMessage(analysis: any): string {
+    return `检测到 ${analysis.anomalies.length} 个异常
+
+${analysis.anomalies.map((a: any) => `
+- [${a.severity.toUpperCase()}] ${a.type}: ${a.pattern}
+  数量: ${a.count}
+  建议: ${a.recommendation}
+`).join('\n')}
+
+整体评估: ${analysis.summary}
+`;
+  }
+
+  validate(input: unknown): boolean {
+    return typeof input === 'object' &&
+           'service' in input &&
+           'timeRange' in input;
+  }
+}
+```
+
+#### Agent Core 层（决策与调度）
+
+```typescript
+// Agent Core 定期执行日志分析
+class LogMonitoringAgent extends AgentCore {
+  async startMonitoring() {
+    logger.info('Starting log monitoring agent');
+
+    // 注册定时任务
+    this.scheduler.addPeriodicTask({
+      id: 'log-check',
+      interval: 300000, // 每 5 分钟
+      execute: async () => {
+        await this.checkAllServices();
+      }
+    });
+
+    // 等待新日志事件
+    this.scheduler.addEventTask({
+      id: 'log-event',
+      eventType: 'new-logs',
+      execute: async (event: any) => {
+        await this.checkService(event.service);
+      }
+    });
+  }
+
+  private async checkAllServices() {
+    const services = ['api-service', 'worker-service', 'web-service'];
+
+    for (const service of services) {
+      await this.checkService(service);
+    }
+  }
+
+  private async checkService(service: string) {
+    // 1. 查询可用的检测 skills
+    const skills = await this.registry.list({ intent: 'log-anomaly-detection' });
+
+    // 2. 选择最佳 skill
+    const bestSkill = this.selectBestSkill(skills);
+
+    // 3. 执行检测
+    const result = await this.sandbox.run(bestSkill, {
+      id: `log-check-${service}-${Date.now()}`,
+      intent: 'log-anomaly-detection',
+      input: {
+        service,
+        timeRange: '5m'
+      }
+    });
+
+    // 4. 记录和反思
+    await this.memory.record(bestSkill.name, result);
+    await this.reflection.observe(bestSkill, result, {
+      id: service,
+      intent: 'log-anomaly-detection',
+      input: { service }
+    });
+
+    // 5. 如果检测失败，尝试备用 skill
+    if (!result.success && skills.length > 1) {
+      const fallbackSkill = skills.find(s => s.name !== bestSkill.name);
+      if (fallbackSkill) {
+        logger.warn(`Primary skill failed, trying fallback: ${fallbackSkill.name}`);
+        const fallbackResult = await this.sandbox.run(fallbackSkill, {
+          id: `log-check-${service}-${Date.now()}-fallback`,
+          intent: 'log-anomaly-detection',
+          input: { service, timeRange: '5m' }
+        });
+        await this.memory.record(fallbackSkill.name, fallbackResult);
+      }
+    }
+  }
+}
+
+// 使用示例
+const monitorAgent = new LogMonitoringAgent();
+await monitorAgent.startMonitoring();
+```
+
+**关键点**：
+- Tool 提供日志查询和告警发送的基础能力
+- Skill 封装了完整的异常检测流程（查询+分析+告警）
+- Agent Core 负责定期调度、故障转移、监控效果
+- 支持多个 skill 版本并存，自动选择最佳版本
+
+---
+
+### 场景 3：文档自动生成与维护
+
+**背景**：根据代码变更自动更新技术文档，保持文档与代码同步。
+
+#### Tool 层（基础设施）
+
+```typescript
+// 文件读取 Tool
+class FileTool implements Tool {
+  name = 'file';
+  description = '文件系统操作工具';
+  permissions = [
+    { type: 'file_system', rules: { allow: ['read:/**', 'write:/docs/**'] } }
+  ];
+
+  async execute(input: {
+    action: 'read' | 'write';
+    path: string;
+    content?: string;
+  }): Promise<ToolResult> {
+    if (input.action === 'read') {
+      const content = await fs.readFile(input.path, 'utf-8');
+      return { success: true, data: content };
+    } else if (input.action === 'write') {
+      await fs.writeFile(input.path, input.content, 'utf-8');
+      return { success: true };
+    }
+  }
+}
+
+// Git Tool
+class GitTool implements Tool {
+  name = 'git';
+  description = 'Git 操作工具';
+  permissions = [
+    { type: 'command', rules: { allow: ['git diff', 'git log', 'git show'] } }
+  ];
+
+  async execute(input: {
+    action: string;
+    args?: string[];
+  }): Promise<ToolResult> {
+    const result = execSync(`git ${input.action} ${input.args?.join(' ') || ''}`);
+    return { success: true, data: result.toString() };
+  }
+}
+```
+
+#### Skill 层（编排逻辑）
+
+```typescript
+// API 文档生成 Skill
+class APIDocGeneratorSkill implements Skill {
+  metadata = {
+    name: 'api-doc-generator-skill',
+    version: '3.2.0',
+    intent: 'generate-api-documentation',
+    author: 'agent',
+    created_at: '2025-02-04',
+    description: '根据代码变更自动生成 API 文档',
+    tags: ['documentation', 'api', 'automation'],
+    dependencies: ['file', 'git', 'llm'],
+    cost_estimate: 0.1,
+    success_threshold: 0.88
+  };
+
+  async execute(context: SkillContext): Promise<SkillResult> {
+    const startTime = Date.now();
+    const { branch, outputPath } = context.input as { branch: string; outputPath: string };
+
+    // 1. 获取代码变更
+    const gitTool = context.tools.get('git') as GitTool;
+    const diffResult = await gitTool.execute({
+      action: 'diff',
+      args: ['main', branch, '--', 'src/api/*.ts']
+    });
+
+    // 2. 读取变更的文件
+    const fileTool = context.tools.get('file') as FileTool;
+    const changedFiles = this.extractChangedFiles(diffResult.data);
+    const fileContents = await Promise.all(
+      changedFiles.map(file => fileTool.execute({ action: 'read', path: file }))
+    );
+
+    // 3. 使用 LLM 生成文档
+    const llmTool = context.tools.get('llm') as LLMTool;
+    const docPrompt = `
+根据以下代码变更，生成或更新 API 文档：
+
+代码变更:
+${diffResult.data}
+
+文件内容:
+${fileContents.map(f => `File: ${f}\n${f.data}`).join('\n\n')}
+
+要求：
+1. 生成 Markdown 格式的 API 文档
+2. 包含端点路径、方法、参数、返回值
+3. 添加使用示例
+4. 标注变更版本和日期
+`;
+
+    const docResult = await llmTool.execute({
+      prompt: docPrompt,
+      model: 'claude-sonnet-4'
+    });
+
+    // 4. 写入文档文件
+    await fileTool.execute({
+      action: 'write',
+      path: outputPath,
+      content: docResult.data as string
+    });
+
+    const cost = (diffResult.cost || 0) + (docResult.cost || 0);
+    const latency = Date.now() - startTime;
+
+    return {
+      success: true,
+      data: { outputPath, docsGenerated: true },
+      metrics: { cost, latency }
+    };
+  }
+
+  private extractChangedFiles(diff: string): string[] {
+    // 解析 git diff 输出，提取变更的文件路径
+    const matches = diff.match(/a\/(src\/api\/[^ ]+)/g);
+    return matches ? [...new Set(matches.map(m => m.substring(2)))] : [];
+  }
+
+  validate(input: unknown): boolean {
+    return typeof input === 'object' &&
+           'branch' in input &&
+           'outputPath' in input;
+  }
+}
+```
+
+#### Agent Core 层（决策与调度）
+
+```typescript
+// 文档更新 Agent
+class DocumentationAgent extends AgentCore {
+  async onPRMerged(pr: { number: number; branch: string; repo: string }) {
+    logger.info(`PR #${pr.number} merged, checking for documentation updates`);
+
+    // 1. 分析 PR 是否涉及 API 变更
+    const analysis = await this.analyzePRChanges(pr);
+
+    // 2. 如果有 API 变更，触发文档生成
+    if (analysis.hasAPIChanges) {
+      logger.info('API changes detected, generating documentation');
+
+      // 查询可用的文档生成 skills
+      const skills = await this.registry.list({ intent: 'generate-api-documentation' });
+
+      // 选择最佳 skill
+      const bestSkill = this.selectBestSkill(skills);
+
+      // 风控检查
+      const allowed = await this.policy.allow(bestSkill, {
+        id: `doc-update-${pr.number}`,
+        intent: 'generate-api-documentation',
+        input: { branch: pr.branch }
+      });
+
+      if (!allowed) {
+        logger.warn('Documentation update blocked by policy');
+        return;
+      }
+
+      // 执行文档生成
+      const result = await this.sandbox.run(bestSkill, {
+        id: `doc-update-${pr.number}`,
+        intent: 'generate-api-documentation',
+        input: {
+          branch: pr.branch,
+          outputPath: `docs/api/${analysis.version}.md`
+        }
+      });
+
+      // 记录结果
+      await this.memory.record(bestSkill.name, result);
+      await this.reflection.observe(bestSkill, result, {
+        id: String(pr.number),
+        intent: 'generate-api-documentation',
+        input: { branch: pr.branch }
+      });
+
+      // 如果成功，创建 PR 提交文档
+      if (result.success) {
+        await this.createDocPR(result.data.outputPath);
+      }
+    }
+  }
+
+  private async analyzePRChanges(pr: { number: number; branch: string; repo: string }) {
+    // 使用 git tool 分析 PR 变更
+    const gitTool = this.tools.get('git') as GitTool;
+    const diff = await gitTool.execute({
+      action: 'diff',
+      args: ['main', pr.branch]
+    });
+
+    const hasAPIChanges = diff.data.includes('src/api/');
+    const version = this.extractVersion(pr.branch);
+
+    return { hasAPIChanges, version };
+  }
+
+  private extractVersion(branch: string): string {
+    const match = branch.match(/v(\d+\.\d+\.\d+)/);
+    return match ? match[1] : 'latest';
+  }
+
+  private async createDocPR(docPath: string) {
+    // 创建 PR 提交文档更新
+    const githubTool = this.tools.get('github') as GitHubTool;
+    await githubTool.execute({
+      action: 'create-pr',
+      repo: 'my-org/my-project',
+      title: 'docs: update API documentation',
+      body: `Automatically generated documentation\n\nChanges in: ${docPath}`
+    });
+  }
+}
+
+// 使用示例 - 监听 PR merge 事件
+const docAgent = new DocumentationAgent();
+
+// 当 PR 被合并时
+docAgent.onPRMerged({
+  number: 456,
+  branch: 'feature/v2.1.0-api-update',
+  repo: 'my-org/my-project'
+});
+```
+
+**关键点**：
+- Tool 提供文件操作和 Git 基础能力
+- Skill 封装完整的文档生成流程（分析变更+生成文档+写入文件）
+- Agent Core 负责事件驱动、条件触发、自动创建 PR
+- 支持文档与代码同步维护，减少人工工作量
+
+---
+
 ## 目标架构
 
 ### 架构图
