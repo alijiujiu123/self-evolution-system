@@ -1,0 +1,91 @@
+# Skill 评估指标配置文件
+#
+# 定义核心指标的阈值和评分权重，支持数据驱动的晋升/淘汰决策
+
+# 晋升/淘汰阈值
+thresholds:
+  # 晋升阈值（从 experimental 晋升到 production）
+  promote:
+    # 最小综合评分 (0-1)
+    min_score: 0.8
+    # 最小执行次数
+    min_executions: 10
+    # 最小成功率 (0-1)
+    min_success_rate: 0.85
+
+  # 淘汰阈值（将 skill 移到 retired）
+  retire:
+    # 最大综合评分 (0-1)
+    max_score: 0.5
+    # 最大执行次数（超过此次数且评分过低才淘汰）
+    max_executions: 20
+    # 最大回滚率 (0-1)
+    max_rollback_rate: 0.3
+
+# 评分权重配置
+weights:
+  # 平衡型权重：综合考虑成功、成本、延迟等因素
+  balanced:
+    # 成功率权重
+    success: 0.4
+    # 成本权重（成本越低越好）
+    cost: 0.2
+    # 延迟权重（延迟越低越好）
+    latency: 0.15
+    # 回滚率权重（回滚越少越好）
+    rollback: 0.15
+    # 稳定性权重
+    stability: 0.1
+
+  # 激进型权重：更重视成功率，愿意承担更高成本和延迟
+  aggressive:
+    success: 0.6
+    cost: 0.1
+    latency: 0.1
+    rollback: 0.1
+    stability: 0.1
+
+  # 保守型权重：更重视成本和稳定性，可以容忍较低的成功率
+  conservative:
+    success: 0.2
+    cost: 0.3
+    latency: 0.2
+    rollback: 0.2
+    stability: 0.1
+
+# 核心指标定义
+metrics:
+  # 成功率 (0-1)
+  # 计算公式：success_rate = 成功次数 / 总执行次数
+  success_rate:
+    name: "成功率"
+    formula: "success_rate = success_count / execution_count"
+    description: "Skill 执行成功的比例"
+
+  # 平均成本（元）
+  # 计算公式：avg_cost = 所有执行成本之和 / 执行次数
+  avg_cost:
+    name: "平均成本"
+    formula: "avg_cost = sum(cost) / execution_count"
+    description: "Skill 执行的平均成本，单位：元"
+
+  # 平均延迟（毫秒）
+  # 计算公式：avg_latency = 所有执行延迟之和 / 执行次数
+  avg_latency:
+    name: "平均延迟"
+    formula: "avg_latency = sum(latency) / execution_count"
+    description: "Skill 执行的平均延迟，单位：毫秒"
+
+  # 回滚率 (0-1)
+  # 计算公式：rollback_rate = 回滚次数 / 总执行次数
+  rollback_rate:
+    name: "回滚率"
+    formula: "rollback_rate = rollback_count / execution_count"
+    description: "Skill 执行后需要回滚的比例"
+
+  # 稳定性分数 (0-1)
+  # 计算公式：stability_score = 1 - 标准差（归一化）
+  stability_score:
+    name: "稳定性分数"
+    formula: "stability_score = 1 - std_dev(success_rate)"
+    description: "Skill 成功率的稳定性，使用标准差衡量"
