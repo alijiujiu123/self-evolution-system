@@ -2,6 +2,35 @@
 
 感谢你对 OpenClaw Self-Evolution System 的兴趣！我们欢迎所有形式的贡献。
 
+## 🌏 语言规范
+
+**本项目使用中文作为主要交流语言。**
+
+### Issue 和 PR
+- **Issue 标题和描述**：请使用中文
+- **PR 描述**：请使用中文
+- **代码注释**：优先使用中文，技术术语可保留英文
+- **Commit Message**：请使用中文（见下方规范）
+
+**例外情况**：
+- 代码本身（变量名、函数名等）使用英文
+- 技术术语可以保留英文（如 API、JSON、TypeScript 等）
+- 如果涉及国际化的配置文件（如 `.github` 配置），可使用英文
+
+### 示例
+
+✅ **推荐的 Issue 标题**：
+```
+【BUG】Skill Registry 无法加载 experimental 目录下的技能
+【FEATURE】为 Agent Core 添加任务优先级队列
+```
+
+❌ **不推荐的 Issue 标题**：
+```
+Bug: Skill Registry cannot load skills in experimental dir
+Add priority queue for Agent Core
+```
+
 ## 如何贡献
 
 ### 报告 Bug
@@ -39,7 +68,7 @@
 
 #### Commit 消息规范
 
-使用清晰的、描述性的 commit 消息：
+使用清晰的、描述性的 commit 消息（**必须使用中文**）：
 
 ```
 feat: 添加新功能
@@ -51,13 +80,35 @@ test: 添加或修改测试
 chore: 其他杂项
 ```
 
-示例：
+**格式**：
 ```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**示例**：
+```bash
 feat(analyzer): 添加新的风险分类算法
 
 - 实现基于机器学习的风险评分
-- 优化分类准确率
-- 添加单元测试
+- 优化分类准确率到 95%
+- 添加单元测试覆盖
+
+Closes #123
+```
+
+**更多示例**：
+```bash
+fix(scheduler): 修复任务调度时的死锁问题
+
+docs: 更新迁移指南的 Phase 3 步骤
+
+refactor(skills): 重构 Skill Registry 加载逻辑
+
+test(agent): 添加 Agent Core 主循环的集成测试
 ```
 
 ### 文档贡献

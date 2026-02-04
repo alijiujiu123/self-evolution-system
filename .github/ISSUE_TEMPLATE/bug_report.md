@@ -6,6 +6,8 @@ labels: bug
 assignees: ''
 ---
 
+**请使用中文填写此表单。** / Please fill out this form in Chinese.
+
 ## Bug 描述
 简洁清晰地描述这个 bug。
 

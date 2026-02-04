@@ -6,6 +6,8 @@ labels: enhancement
 assignees: ''
 ---
 
+**请使用中文填写此表单。** / Please fill out this form in Chinese.
+
 ## 你的功能请求是否与问题相关？
 清晰简洁地描述问题所在。例如：我总是受限于 [...]
 
