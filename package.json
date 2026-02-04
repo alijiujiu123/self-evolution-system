@@ -30,5 +30,11 @@
   "bugs": {
     "url": "https://github.com/openclaw/self-evolution-system/issues"
   },
-  "homepage": "https://github.com/openclaw/self-evolution-system#readme"
+  "homepage": "https://github.com/openclaw/self-evolution-system#readme",
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@vitest/coverage-v8": "^4.0.18",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
 }

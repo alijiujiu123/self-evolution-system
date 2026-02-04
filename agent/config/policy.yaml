@@ -1,0 +1,361 @@
+# OpenClaw Self-Evolution System - 安全策略配置
+#
+# 本文件定义了 Agent 的全局安全策略，用于防止自动执行高危操作
+#
+# 策略类型：
+# - dangerous_commands: 危险命令黑名单，包含模式、严重等级和行动类型
+#   行动类型:
+#     * block: 直接阻止执行
+#     * require_approval: 需要人工确认
+#     * warn: 记录警告但允许执行
+#
+# - permissions: 权限模板，定义不同角色的资源访问权限
+#
+# - limits: 执行限制，包括成本、次数、延迟等
+
+# ============================================
+# 危险命令黑名单
+# ============================================
+dangerous_commands:
+  # 1. 删除操作
+  - pattern: "rm -rf"
+    severity: "critical"
+    action: "block"
+    description: "递归删除目录，极易造成数据丢失"
+
+  - pattern: "rm -f"
+    severity: "high"
+    action: "require_approval"
+    description: "强制删除文件，可能导致误删"
+
+  - pattern: "del /f /s /q"
+    severity: "critical"
+    action: "block"
+    description: "Windows 强制删除命令"
+
+  # 2. 强制推送操作
+  - pattern: "git push --force"
+    severity: "high"
+    action: "require_approval"
+    description: "强制推送可能覆盖远程历史"
+
+  - pattern: "git push -f"
+    severity: "high"
+    action: "require_approval"
+    description: "强制推送的简写形式"
+
+  - pattern: "git push -\\-force-with-lease"
+    severity: "medium"
+    action: "warn"
+    description: "相对安全的强制推送，但仍需谨慎"
+
+  # 3. 权限修改操作
+  - pattern: "chmod 777"
+    severity: "high"
+    action: "block"
+    description: "开放所有权限，存在安全风险"
+
+  - pattern: "chmod -R 777"
+    severity: "critical"
+    action: "block"
+    description: "递归开放所有权限"
+
+  - pattern: "chown -R"
+    severity: "high"
+    action: "require_approval"
+    description: "递归修改所有者，可能影响系统权限"
+
+  # 4. 系统命令
+  - pattern: "shutdown"
+    severity: "critical"
+    action: "block"
+    description: "关闭系统"
+
+  - pattern: "reboot"
+    severity: "critical"
+    action: "block"
+    description: "重启系统"
+
+  - pattern: "systemctl stop"
+    severity: "high"
+    action: "require_approval"
+    description: "停止系统服务"
+
+  - pattern: "kill -9"
+    severity: "high"
+    action: "require_approval"
+    description: "强制终止进程"
+
+  # 5. 数据库操作
+  - pattern: "DROP DATABASE"
+    severity: "critical"
+    action: "block"
+    description: "删除整个数据库"
+
+  - pattern: "DROP TABLE"
+    severity: "critical"
+    action: "block"
+    description: "删除数据表"
+
+  - pattern: "TRUNCATE TABLE"
+    severity: "high"
+    action: "require_approval"
+    description: "清空数据表"
+
+  - pattern: "DELETE FROM"
+    severity: "medium"
+    action: "warn"
+    description: "删除数据记录"
+
+  # 6. 包管理操作
+  - pattern: "npm uninstall -g"
+    severity: "medium"
+    action: "require_approval"
+    description: "全局卸载 npm 包"
+
+  - pattern: "pip uninstall -y"
+    severity: "medium"
+    action: "require_approval"
+    description: "强制卸载 Python 包"
+
+  - pattern: "apt-get remove --purge"
+    severity: "high"
+    action: "require_approval"
+    description: "完全删除系统包及其配置"
+
+  # 7. 磁盘操作
+  - pattern: "mkfs"
+    severity: "critical"
+    action: "block"
+    description: "格式化磁盘"
+
+  - pattern: "dd if=/dev/zero"
+    severity: "critical"
+    action: "block"
+    description: "覆盖磁盘数据"
+
+  # 8. 网络配置
+  - pattern: "iptables -F"
+    severity: "high"
+    action: "require_approval"
+    description: "清空防火墙规则"
+
+  - pattern: "ufw --force enable"
+    severity: "high"
+    action: "require_approval"
+    description: "强制启用防火墙"
+
+  # 9. 用户管理
+  - pattern: "userdel -r"
+    severity: "high"
+    action: "require_approval"
+    description: "删除用户及其家目录"
+
+  - pattern: "passwd"
+    severity: "high"
+    action: "require_approval"
+    description: "修改用户密码"
+
+  # 10. 配置文件修改
+  - pattern: "echo.*>.*\\.conf"
+    severity: "medium"
+    action: "warn"
+    description: "修改配置文件"
+
+  - pattern: "sed -i"
+    severity: "medium"
+    action: "warn"
+    description: "原地编辑文件"
+
+# ============================================
+# 权限模板
+# ============================================
+permissions:
+  # 只读权限：仅允许读取操作
+  read_only:
+    file_system:
+      - "read:/**"
+    network:
+      - "GET:*"
+      - "HEAD:*"
+    commands:
+      - "git diff"
+      - "git log"
+      - "git show"
+      - "cat"
+      - "ls"
+      - "find"
+      - "grep"
+      - "head"
+      - "tail"
+      - "less"
+      - "more"
+
+  # 有限写入：允许在临时目录写入
+  limited_write:
+    file_system:
+      - "read:/**"
+      - "write:/tmp/*"
+      - "write:/var/tmp/*"
+      - "write:*.tmp"
+    network:
+      - "*:*"  # 允许所有网络操作
+    commands:
+      - "git add"
+      - "git commit"
+      - "git status"
+      - "git diff"
+      - "git log"
+      - "git show"
+      - "git checkout"
+      - "cat"
+      - "ls"
+      - "find"
+      - "grep"
+      - "head"
+      - "tail"
+      - "echo"
+      - "tee"
+      - "mkdir -p"
+
+  # 项目写入：允许在项目目录内写入
+  project_write:
+    file_system:
+      - "read:/**"
+      - "write:./**"
+      - "write:src/**"
+      - "write:docs/**"
+      - "write:tests/**"
+    network:
+      - "*:*"
+    commands:
+      - "git add"
+      - "git commit"
+      - "git status"
+      - "git diff"
+      - "git log"
+      - "git show"
+      - "git checkout"
+      - "cat"
+      - "ls"
+      - "find"
+      - "grep"
+      - "echo"
+      - "tee"
+      - "mkdir -p"
+      - "touch"
+
+  # 完全权限：所有操作（谨慎使用）
+  full:
+    file_system:
+      - "*:*"
+    network:
+      - "*:*"
+    commands:
+      - "*"
+
+# ============================================
+# 执行限制
+# ============================================
+limits:
+  # 成本限制
+  max_cost_per_day: 50              # 每日最大成本（元）
+  max_cost_per_hour: 10             # 每小时最大成本（元）
+  max_cost_per_task: 5              # 单个任务最大成本（元）
+
+  # 执行次数限制
+  max_executions_per_hour: 100      # 每小时最大执行次数
+  max_executions_per_day: 1000      # 每日最大执行次数
+
+  # 延迟限制
+  max_latency_per_task: 30000       # 单个任务最大延迟（毫秒，30秒）
+  timeout_default: 10000            # 默认超时（毫秒，10秒）
+  timeout_long: 60000                # 长任务超时（毫秒，60秒）
+
+  # 资源限制
+  max_memory_per_task: "512MB"      # 单个任务最大内存
+  max_cpu_time_per_task: 30         # 单个任务最大 CPU 时间（秒）
+
+  # 人工确认超时
+  approval_timeout: 300000          # 等待人工确认的超时时间（毫秒，5分钟）
+
+# ============================================
+# 策略规则
+# ============================================
+rules:
+  # 低风险操作：直接执行
+  low_risk:
+    patterns:
+      - "git status"
+      - "git log"
+      - "git diff"
+      - "cat"
+      - "ls"
+      - "grep"
+      - "echo"
+    action: "allow"
+
+  # 中风险操作：记录日志但执行
+  medium_risk:
+    patterns:
+      - "git add"
+      - "git commit"
+      - "mkdir"
+      - "touch"
+    action: "log_only"
+
+  # 高风险操作：需要人工确认
+  high_risk:
+    patterns:
+      - "git push"
+      - "npm install"
+      - "systemctl restart"
+    action: "require_approval"
+
+  # 禁止操作：直接拒绝
+  forbidden:
+    action: "block"
+
+# ============================================
+# 通知配置
+# ============================================
+notifications:
+  # 当操作被阻止时发送通知
+  on_block:
+    enabled: true
+    channels:
+      - "console"
+      - "log"
+
+  # 当需要人工确认时发送通知
+  on_approval_request:
+    enabled: true
+    channels:
+      - "console"
+      - "log"
+      - "telegram"  # 如果配置了 Telegram
+
+  # 当操作执行成功时发送通知
+  on_success:
+    enabled: false
+    channels:
+      - "log"
+
+# ============================================
+# 沙箱配置
+# ============================================
+sandbox:
+  # 默认沙箱模式
+  default_mode: "limited"  # dry-run, read-only, limited, full
+
+  # 沙箱隔离
+  isolation:
+    enabled: true
+    chroot_enabled: false  # chroot 隔离（需要 root 权限）
+    network_namespace: false  # 网络命名空间隔离
+
+  # 资源限制
+  resource_limits:
+    cpu_shares: 512  # CPU 份额
+    memory_limit: "512MB"
+    disk_quota: "1GB"
