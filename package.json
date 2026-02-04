@@ -1,0 +1,34 @@
+{
+  "name": "openclaw-self-evolution-system",
+  "version": "1.0.0",
+  "description": "OpenClaw Self-Evolution System - An intelligent AI system that automatically learns, analyzes, optimizes, and deploys improvements to the OpenClaw ecosystem",
+  "main": "index.js",
+  "scripts": {
+    "start": "cd skill && node index.cjs",
+    "learn": "cd skill && node index.cjs learn",
+    "optimize": "cd skill && node index.cjs optimize",
+    "apply": "cd skill && node index.cjs apply",
+    "report": "cd skill && node index.cjs report",
+    "status": "cd skill && node index.cjs status",
+    "monitor": "./evolution-monitor.sh",
+    "quick-monitor": "./evolution-quick-monitor.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/self-evolution-system.git"
+  },
+  "keywords": [
+    "openclaw",
+    "self-evolution",
+    "ai",
+    "automation",
+    "optimization",
+    "machine-learning"
+  ],
+  "author": "OpenClaw",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/openclaw/self-evolution-system/issues"
+  },
+  "homepage": "https://github.com/openclaw/self-evolution-system#readme"
+}

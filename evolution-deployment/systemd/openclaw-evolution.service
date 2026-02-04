@@ -1,0 +1,64 @@
+[Unit]
+Description=OpenClaw Evolution System - Continuous Learning & Autonomous Optimization
+After=network-online.target openclaw-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/usr/local/lib/node_modules/openclaw/skills/evolution
+
+# Environment
+Environment="NODE_ENV=production"
+Environment="EVOLUTION_MODEL_CLASSIFIER=glm-4-flash"
+Environment="EVOLUTION_MODEL_ANALYZER=glm-4.7"
+Environment="EVOLUTION_MODEL_COMPLEX=glm-4-plus"
+Environment="EVOLUTION_DAILY_BUDGET=50"
+Environment="EVOLUTION_ENABLE_CLOUD=false"
+Environment="EVOLUTION_MAX_WORKERS=5"
+Environment="EVOLUTION_CHECK_INTERVAL_FAST=30"
+Environment="EVOLUTION_CHECK_INTERVAL_MED=300"
+Environment="EVOLUTION_CHECK_INTERVAL_SLOW=3600"
+
+# GitHub Token (optional - for auto-creating issues/PRs)
+# Environment="EVOLUTION_GITHUB_TOKEN=ghp_xxx"
+Environment="EVOLUTION_REPO=alijiujiu123/openclaw"
+
+# Paths
+Environment="EVOLUTION_DB_PATH=/root/.openclaw/knowledge/evolution.db"
+Environment="EVOLUTION_VECTOR_PATH=/root/.openclaw/knowledge/vectors"
+
+# Execution
+ExecStart=/usr/bin/node index.js start
+ExecStop=/usr/bin/node index.js stop
+
+# Auto-restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw-evolution
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+CPUQuota=200%
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/root/.openclaw/knowledge
+
+# Timeout
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

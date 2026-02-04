@@ -1,0 +1,35 @@
+{
+  "name": "openclaw-skill-evolution",
+  "version": "1.0.0",
+  "description": "OpenClaw Self-Evolution System - Continuous learning and autonomous optimization",
+  "type": "module",
+  "main": "index.cjs",
+  "scripts": {
+    "start": "node index.cjs",
+    "test": "bash tests/functional-test.sh",
+    "test:unit": "node tests/unit.test.cjs"
+  },
+  "keywords": [
+    "openclaw",
+    "skill",
+    "evolution",
+    "self-improvement",
+    "ai",
+    "learning"
+  ],
+  "author": "javaer",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "better-sqlite3": "^9.6.0",
+    "chroma-js": "^2.4.2",
+    "node-cron": "^3.0.2",
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
