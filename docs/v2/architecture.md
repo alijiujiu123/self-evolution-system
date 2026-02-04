@@ -251,6 +251,201 @@ class AgentCore {
 
 ---
 
+### 三者关系图
+
+```mermaid
+graph TB
+    subgraph "Agent Core (操作系统)"
+        Planner[Planner<br/>任务拆解]
+        Scheduler[Scheduler<br/>任务调度]
+        Policy[Policy<br/>风控决策]
+        Reflection[Reflection<br/>自检反思]
+        Registry[Registry<br/>Skill 注册表]
+    end
+
+    subgraph "Skill Layer (软件层)"
+        SkillA[Skill A<br/>code-review]
+        SkillB[Skill B<br/>summarize]
+        SkillC[Skill C<br/>optimize]
+    end
+
+    subgraph "Tool Layer (硬件层)"
+        Tool1[Tool 1<br/>Shell]
+        Tool2[Tool 2<br/>GitHub API]
+        Tool3[Tool 3<br/>LLM]
+        Tool4[Tool 4<br/>Browser]
+    end
+
+    AgentCore -->|1. 拆解任务| Planner
+    Planner -->|2. 查询| Registry
+    Registry -->|3. 返回 Skills| SkillA
+    Registry -->|3. 返回 Skills| SkillB
+    Registry -->|3. 返回 Skills| SkillC
+    SkillA -->|4. 调用| Tool1
+    SkillA -->|4. 调用| Tool2
+    SkillB -->|4. 调用| Tool3
+    SkillC -->|4. 调用| Tool2
+    SkillC -->|4. 调用| Tool4
+    Tool1 -->|5. 执行并返回结果| SkillA
+    Tool2 -->|5. 执行并返回结果| SkillC
+    Tool3 -->|5. 执行并返回结果| SkillB
+    SkillA -->|6. 返回执行结果| Reflection
+    SkillB -->|6. 返回执行结果| Reflection
+    SkillC -->|6. 返回执行结果| Reflection
+
+    Policy -.->|安全检查| SkillA
+    Policy -.->|安全检查| SkillB
+    Policy -.->|安全检查| SkillC
+
+    style AgentCore fill:#e1f5ff
+    style SkillLayer fill:#fff4e1
+    style ToolLayer fill:#f0e1ff
+```
+
+**关系说明**：
+
+1. **Agent Core** 决定"做什么"（决策层）
+2. **Skill** 决定"怎么做"（编排层）
+3. **Tool** 负责"执行什么"（执行层）
+
+**权限边界**：
+- Agent Core → Skill：无权限限制
+- Skill → Tool：受权限配置约束
+- Tool → World：受系统级权限约束
+
+---
+
+### 实际使用场景
+
+#### 场景 1：自动化代码审查流程
+
+**目标**：当有新的 GitHub PR 时，自动进行代码审查。
+
+**执行流程**：
+
+```typescript
+// 1. Agent Core 接收到目标
+const goal = "Review PR #1234";
+
+// 2. Planner 拆解任务
+const plan = planner.decompose(goal);
+// [
+//   { id: 1, intent: "get-pr-diff", input: { prNumber: 1234 } },
+//   { id: 2, intent: "code-review", input: { diff: "..." } },
+//   { id: 3, intent: "post-comment", input: { review: "..." } }
+// ]
+
+// 3. 查询合适的 Skills
+const reviewSkill = registry.getBest("code-review");
+
+// 4. 执行 Skill（内部调用 Tools）
+const result = await reviewSkill.execute({
+  input: { prNumber: 1234 },
+  tools: {
+    github: githubTool,  // Tool: 获取 PR diff
+    llm: llmTool        // Tool: 生成评论
+  }
+});
+
+// Skill 内部流程：
+// - Tool (GitHub API): 获取 PR #1234 的 diff
+// - Tool (LLM): 分析代码，生成审查意见
+// - Tool (GitHub API): 发布评论到 PR
+
+// 5. Reflection 记录结果
+await reflection.observe(reviewSkill, result);
+```
+
+**涉及组件**：
+- **Agent Core**: Planner、Scheduler、Reflection
+- **Skill**: code-review
+- **Tools**: GitHub API、LLM
+
+---
+
+#### 场景 2：文档摘要生成
+
+**目标**：自动生成技术文档的摘要。
+
+**执行流程**：
+
+```typescript
+const goal = "Summarize the latest blog post";
+
+// 1. Planner 拆解
+const plan = [
+  { intent: "fetch-url", input: { url: "https://blog.example.com/latest" } },
+  { intent: "extract-text", input: { html: "..." } },
+  { intent: "summarize", input: { text: "..." } }
+];
+
+// 2. 选择 Skill
+const skill = registry.getBest("summarize");
+
+// 3. 执行
+const result = await skill.execute({
+  input: { url: "https://blog.example.com/latest" },
+  tools: {
+    browser: browserTool,  // Tool: 获取网页
+    llm: llmTool          // Tool: 生成摘要
+  }
+});
+
+// Skill 内部：
+// - Tool (Browser): 访问 URL，获取 HTML
+// - Tool (Extractor): 提取正文文本
+// - Tool (LLM): 生成摘要（300 字以内）
+```
+
+**涉及组件**：
+- **Agent Core**: Planner、Scheduler
+- **Skill**: summarize
+- **Tools**: Browser、LLM
+
+---
+
+#### 场景 3：依赖项安全检查
+
+**目标**：检查项目的依赖项是否存在安全漏洞。
+
+**执行流程**：
+
+```typescript
+const goal = "Check for security vulnerabilities in dependencies";
+
+// 1. Planner 拆解
+const plan = [
+  { intent: "read-package-json", input: { path: "./package.json" } },
+  { intent: "check-vulnerabilities", input: { dependencies: [...] } },
+  { intent: "generate-report", input: { findings: [...] } }
+];
+
+// 2. 选择 Skill
+const skill = registry.getBest("security-check");
+
+// 3. 执行（沙箱模式 - 只读）
+const result = await sandbox.run(skill, task, {
+  mode: "read-only"
+});
+
+// Skill 内部：
+// - Tool (File System): 读取 package.json
+// - Tool (NPM Audit API): 检查漏洞
+// - Tool (LLM): 生成修复建议（不执行）
+```
+
+**涉及组件**：
+- **Agent Core**: Planner、Policy（安全检查）、Sandbox（沙箱）
+- **Skill**: security-check
+- **Tools**: File System、NPM Audit API、LLM
+
+**安全措施**：
+- Policy 检查：只允许读操作
+- Sandbox 模式：read-only
+- 人工确认：执行修复前需要批准
+
+---
+
 ## 目标架构
 
 ### 架构图
