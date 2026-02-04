@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # v1 代码检查
+  v1-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: skill/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./skill
+        run: npm ci
+
+      - name: Run linter (if exists)
+        working-directory: ./skill
+        run: npm run lint || echo "No lint script found"
+        continue-on-error: true
+
+  # v2 代码检查
+  v2-type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || echo "No pnpm-lock.yaml yet"
+
+      - name: TypeScript type check
+        run: pnpm tsc --noEmit || echo "TypeScript not configured yet"
+        continue-on-error: true
+
+  # 测试（如果有）
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || echo "No pnpm-lock.yaml yet"
+
+      - name: Run tests
+        run: pnpm test || echo "No tests found"
+        continue-on-error: true

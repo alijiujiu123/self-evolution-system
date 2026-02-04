@@ -1,0 +1,157 @@
+# .github/labeler.yml
+# 自动标签配置（基于文件变化）
+
+# v1 / v2 架构
+"v1":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/**"
+          - "docs/v1/**"
+"v2":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/**"
+          - "docs/v2/**"
+
+# 核心模块
+"agent: core":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/core/**"
+          - "docs/v2/architecture.md"
+
+"agent: skills":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/skills/**"
+
+"agent: tools":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/tools/**"
+
+"agent: memory":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/memory/**"
+
+"agent: sandbox":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/sandbox/**"
+
+"agent: evaluation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/evaluation/**"
+
+# v1 模块
+"v1: analyzer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/analyzer/**"
+
+"v1: compute":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/compute/**"
+
+"v1: deployment":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/deployment/**"
+
+"v1: executor":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/executor/**"
+
+"v1: monitors":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/monitors/**"
+
+"v1: optimizer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skill/lib/optimizer/**"
+
+# 部署相关
+"deployment":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "evolution-deployment/**"
+          - "*.sh"
+
+# 文档
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+          - "README*"
+
+# 配置
+"configuration":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.yaml"
+          - "*.yml"
+          - ".github/**"
+          - "agent/config/**"
+
+# GitHub 相关
+"github":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+# TypeScript 相关
+"typescript":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tsconfig.json"
+          - "**/*.ts"
+          - "**/*.tsx"
+
+# 测试
+"tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.test.ts"
+          - "**/*.test.js"
+          - "**/*.spec.ts"
+          - "**/*.spec.js"
+          - "tests/**"
+          - "test/**"
+
+# 数据库
+"database":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.sql"
+          - "skill/lib/storage/**"
+          - "agent/memory/**"
+
+# 安全
+"security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "agent/sandbox/**"
+          - "agent/config/policy.yaml"
+          - "docs/**/*security*"
+
+# 依赖管理
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "package-lock.json"
+          - "pnpm-lock.yaml"
+          - "**/package.json"
+
+# CI/CD
+"ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"

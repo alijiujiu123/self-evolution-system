@@ -1,0 +1,24 @@
+name: Workflow Sanity
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download actionlint
+        run: |
+          curl -sLO https://github.com/rhysd/actionlint/releases/latest/download/actionlint_linux_amd64.tar.gz
+          tar xvzf actionlint_linux_amd64.tar.gz
+
+      - name: Run actionlint
+        run: ./actionlint -config .github/actionlint.yaml

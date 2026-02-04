@@ -1,0 +1,88 @@
+# Dependabot configuration for self-evolution-system
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+registries:
+  npm-npmjs:
+    type: npm-registry
+    url: https://registry.npmjs.org
+    replaces-base: true
+
+updates:
+  # v1: npm dependencies (skill/ directory)
+  - package-ecosystem: npm
+    directory: /skill
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    cooldown:
+      default-days: 7
+    groups:
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 10
+    registries:
+      - npm-npmjs
+    labels:
+      - dependencies
+      - v1
+      - skill
+
+  # v2: npm dependencies (root, for TypeScript)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    cooldown:
+      default-days: 7
+    groups:
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 10
+    registries:
+      - npm-npmjs
+    labels:
+      - dependencies
+      - v2
+      - agent
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions

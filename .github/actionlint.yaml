@@ -1,0 +1,16 @@
+# actionlint configuration
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+# 如果使用 self-hosted runner，配置标签
+self-hosted-runner:
+  labels:
+    # - ubuntu-latest
+
+# Ignore patterns for known issues
+paths:
+  .github/workflows/**/*.yml:
+    ignore:
+      # Ignore shellcheck warnings (we run shellcheck separately)
+      - "shellcheck reported issue.+"
+      # Ignore intentional if: false for disabled jobs
+      - 'constant expression "false" in condition'

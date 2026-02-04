@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 需要帮助？
+    url: https://github.com/alijiujiu123/self-evolution-system/discussions
+    about: 请使用 GitHub Discussions 寻求帮助
+  - name: 安全漏洞
+    url: https://github.com/alijiujiu123/self-evolution-system/security/advisories
+    about: 请使用 GitHub Security Advisories 报告安全漏洞

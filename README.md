@@ -2,7 +2,31 @@
 
 一个智能自我进化的 AI 系统，能够自动学习、分析、优化和部署 OpenClaw 生态系统的改进建议。
 
-## 🌟 核心特性
+## 📢 版本说明
+
+**当前支持两个架构版本：**
+
+- **v1（稳定版）**：生产就绪的 Node.js 系统，已部署并运行中
+- **v2（开发中）**：重构的 TypeScript 架构，支持完整的 Skill 生命周期和自动演化
+
+### 如何选择版本？
+
+| 场景 | 推荐版本 |
+|------|---------|
+| 生产环境部署 | **v1** (`skill/` 目录) |
+| 新功能开发 | **v2** (`agent/` 目录) |
+| 学习架构 | 先看 v1，再了解 v2 |
+| 贡献代码 | 查看 [GitHub Issues](docs/github-issues-v2.md) |
+
+**📖 文档导航：**
+- [v1 文档](docs/v1/README.md) - 当前生产系统
+- [v2 架构设计](docs/v2/architecture.md) - 新架构设计
+- [v1 → v2 迁移指南](docs/v2/migration-guide.md) - 迁移步骤
+- [v2 GitHub Issues](docs/github-issues-v2.md) - 开发任务
+
+---
+
+## 🌟 核心特性（v1）
 
 - **自动化学习**: 从多个数据源（AI 前沿、OpenClaw 生态、创业趋势、技术栈）持续学习
 - **智能分析**: 使用 AI 对收集的信息进行分类、风险评估和优先级排序
@@ -15,7 +39,7 @@
 
 ```
 self-evolution-system/
-├── skill/                     # Evolution Skill 核心代码
+├── skill/                     # v1: Evolution Skill 核心代码（稳定版）
 │   ├── lib/
 │   │   ├── analyzer/        # 分析器（分类、风险评估）
 │   │   ├── compute/         # 计算引擎（本地/云端）
@@ -30,6 +54,16 @@ self-evolution-system/
 │   ├── SKILL.md             # Skill 文档
 │   ├── package.json         # 依赖配置
 │   └── README.md            # 原始 README
+│
+├── agent/                     # v2: 新架构（开发中）
+│   ├── core/                # Agent Core（Planner, Scheduler, Policy）
+│   ├── skills/              # Skill 层（experimental, production, retired）
+│   ├── tools/               # Tool 层（Shell, GitHub, LLM）
+│   ├── memory/              # Memory 层（短期、长期、统计）
+│   ├── sandbox/             # 沙箱执行环境
+│   ├── evaluation/          # 评估系统
+│   └── config/              # 配置文件
+│
 ├── evolution-deployment/    # 部署脚本和文档
 │   ├── install.sh           # 安装脚本
 │   ├── systemd/             # Systemd 服务配置
@@ -38,6 +72,14 @@ self-evolution-system/
 │   ├── SUMMARY.md
 │   ├── CRON.md              # Cron 配置
 │   └── GITHUB-TOKEN-SETUP.md
+│
+├── docs/                    # 文档目录
+│   ├── v1/                  # v1 文档
+│   ├── v2/                  # v2 文档
+│   │   ├── architecture.md  # 架构设计
+│   │   └── migration-guide.md # 迁移指南
+│   └── github-issues-v2.md  # v2 开发任务
+│
 ├── evolution-monitor.sh     # 完整监控脚本
 ├── evolution-quick-monitor.sh  # 快速监控脚本
 └── evolution-analysis-report.md # 分析报告示例
@@ -247,11 +289,29 @@ CREATE TABLE learning_log (
 
 ## 📚 相关文档
 
+### v1 文档（当前生产系统）
+
 - [部署指南](evolution-deployment/README.md)
 - [部署检查清单](evolution-deployment/CHECKLIST.md)
 - [Cron 配置](evolution-deployment/CRON.md)
 - [GitHub Token 设置](evolution-deployment/GITHUB-TOKEN-SETUP.md)
 - [分析报告示例](evolution-analysis-report.md)
+
+### v2 文档（新架构）
+
+- [v2 架构设计文档](docs/v2/architecture.md) - 完整的架构设计
+- [v1 → v2 迁移指南](docs/v2/migration-guide.md) - 详细的迁移步骤
+- [v2 GitHub Issues](docs/github-issues-v2.md) - 16 个开发任务
+
+### 快速导航
+
+| 我想... | 查看文档 |
+|---------|---------|
+| 部署 v1 到生产环境 | [部署指南](evolution-deployment/README.md) |
+| 了解新架构设计 | [v2 架构设计](docs/v2/architecture.md) |
+| 从 v1 迁移到 v2 | [迁移指南](docs/v2/migration-guide.md) |
+| 参与 v2 开发 | [GitHub Issues](docs/github-issues-v2.md) |
+| 监控运行状态 | [evolution-monitor.sh](evolution-monitor.sh) |
 
 ## 🤝 贡献
 
@@ -273,4 +333,41 @@ MIT License
 
 ---
 
-**注意**: 此系统仍在开发中，某些功能可能需要进一步测试和完善。
+## 🚀 v2 新架构预览
+
+v2 正在开发中，将带来以下重大改进：
+
+### 核心改进
+
+- **明确的抽象边界**: Tool / Skill / Agent Core 职责清晰
+- **完整的生命周期**: Skill 从创建、评估、晋升到淘汰的闭环
+- **数据驱动决策**: 基于量化指标的自动演化
+- **增强的安全性**: 沙箱执行、细粒度权限控制
+- **可演化性**: Agent 不需要"变聪明"也能持续优化
+
+### 关键特性
+
+- **Skill Registry**: 动态加载和比较 Skills
+- **自动评估**: 5 个核心指标（成功率、成本、延迟等）
+- **生命周期管理**: 自动晋升/淘汰机制
+- **Sandbox 执行**: dry-run、read-only、limited 模式
+- **Policy 风控**: 危险命令拦截、权限检查
+
+### 开发进度
+
+- **Phase 0**: 共识与安全底座（规划中）
+- **Phase 1**: Skill 基础设施（规划中）
+- **Phase 2**: 生命周期与评估（规划中）
+- **Phase 3**: Sandbox 与风控（规划中）
+- **Phase 4**: Agent Core 解耦（规划中）
+- **Phase 5**: Memory & 演化闭环（规划中）
+- **Phase 6**: 首个真实演化 Demo（规划中）
+
+查看 [v2 架构设计](docs/v2/architecture.md) 了解详情。
+
+---
+
+**注意**:
+- v1 是稳定的生产版本，已充分测试
+- v2 正在积极开发中，欢迎参与贡献
+- 两个版本将长期共存，你可以根据需求选择
