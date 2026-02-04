@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/alijiujiu123/self-evolution-system/schemas/meta.json",
+  "title": "Skill Metadata Schema",
+  "description": "Schema for validating skill metadata (meta.json) files",
+  "type": "object",
+  "required": ["name", "version", "intent", "author", "created_at"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Skill name, must be globally unique",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version number following semantic versioning (e.g., 1.0.0)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$"
+    },
+    "intent": {
+      "type": "string",
+      "description": "Core intent for skill discovery and classification (e.g., 'code-review', 'summarize-text')",
+      "minLength": 1
+    },
+    "author": {
+      "type": "string",
+      "description": "Author name (e.g., 'agent' or specific person name)",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Creation time in ISO 8601 format",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "description": "Short description of the skill"
+    },
+    "tags": {
+      "type": "array",
+      "description": "List of tags for classification and search",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "List of dependent skills or tools",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "cost_estimate": {
+      "type": "number",
+      "description": "Estimated cost per execution (in CNY)",
+      "minimum": 0
+    },
+    "success_threshold": {
+      "type": "number",
+      "description": "Success rate threshold (0-1), skills below this may be retired",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "type": "string",
+      "description": "Skill status",
+      "enum": ["experimental", "production", "retired"],
+      "default": "experimental"
+    },
+    "promoted_at": {
+      "type": "string",
+      "description": "Time when promoted to production (ISO 8601 format)",
+      "format": "date-time"
+    },
+    "retired_at": {
+      "type": "string",
+      "description": "Time when retired (ISO 8601 format)",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

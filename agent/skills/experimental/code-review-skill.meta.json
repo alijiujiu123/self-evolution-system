@@ -1,0 +1,13 @@
+{
+  "name": "llm-code-reviewer",
+  "version": "1.0.0",
+  "intent": "code-review",
+  "author": "agent",
+  "created_at": "2026-02-04T23:00:00.000Z",
+  "description": "使用 LLM 对 GitHub PR 进行代码审查，提供改进建议",
+  "tags": ["llm", "code", "review", "quality", "github"],
+  "dependencies": ["github", "llm"],
+  "cost_estimate": 0.5,
+  "success_threshold": 0.8,
+  "status": "experimental"
+}

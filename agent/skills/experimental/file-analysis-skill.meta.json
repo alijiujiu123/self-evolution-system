@@ -1,0 +1,13 @@
+{
+  "name": "file-analyzer",
+  "version": "1.0.0",
+  "intent": "analyze-file",
+  "author": "agent",
+  "created_at": "2026-02-04T23:00:00.000Z",
+  "description": "分析文件内容，识别文件类型、统计信息、潜在问题等",
+  "tags": ["file", "analysis", "code", "security"],
+  "dependencies": ["shell", "llm"],
+  "cost_estimate": 0.02,
+  "success_threshold": 0.9,
+  "status": "experimental"
+}
